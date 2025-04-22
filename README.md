@@ -16,11 +16,12 @@ This module was available in 2 different versions.
 <table border="0" cellpadding="6" width="600">
  <tr>
   <td align="center">
-   <img alt="UniComal ApS" src="https://github.com/user-attachments/assets/2ee7c3ed-e1db-4b34-a526-e375b20e56cd"width="320" height="240">
+   <img alt="UniComal ApS" src="https://github.com/user-attachments/assets/ec2fb352-4b8c-4fb2-9e4e-475cdd187055"width="320" height="240">
    <div>UniComal ApS</div>
   </td>
   <td align="center">
-   <img alt="UniComal   Commodore" src="https://github.com/user-attachments/assets/07defeb3-e193-4d0b-b623-52d82909a074" width="320" height="240">
+   <img alt="UniComal   Commodore" src="https://github.com/user-attachments/assets/63c4e2a0-0ab4-450c-80f5-c03c20f4c24c" width="320" height="240">
+
    <div>UniComal & Commodore</div>
   </td>
  </tr>
