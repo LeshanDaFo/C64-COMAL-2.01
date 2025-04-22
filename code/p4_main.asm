@@ -7672,22 +7672,22 @@ phSetfrequency
     !by VALUE + REAL
     !by ENDPRC
 
-
+;get 2 parameter; y (0,1,2), and x (0,7,14)
 .lB1EE
-    JSR .l95B0
+    JSR .l95B0                  ; get a parameter, a= high, x= low
     BNE +                       ; invalid voice error
     DEX
     TXA
     STA T1                      ; temporary 1
-    TAY
+    TAY                         ; voice no. in y
     CMP #$03                    ; max voice number
     BCS +                       ; invalid voice error
-    ASL
+    ASL                         ; calculate register offset (0,7,14)
     ASL
     ASL
     SEC
     SBC T1                      ; temporary 1
-    TAX
+    TAX                         ; register offset in x
     RTS
 ---------------------------------
 
@@ -7696,9 +7696,10 @@ phSetfrequency
 ---------------------------------
 ;
 ; used in Sound, Paddle, and Joystick
+; get a parameter (max. 15)
 .lB209
     JSR FNDPAR
-    JSR .l95B3                  ; load COPY1 with A and X
+    JSR .l95B3                  ; load COPY1 with A (high) and X (low)
     BNE .lB225                  ; if value > 255, output error 5
     CPX #$10
     BCS .lB225                  ; if value < 16, output error 5
@@ -7725,6 +7726,7 @@ phSetfrequency
 .lB225
     JMP .error5                 ; error "value out of range"
 ---------------------------------
+; get a table pointer
 .lB228
     JSR FNDPAR
     JSR .l95B3                  ; load COPY1 with A and X
@@ -7818,15 +7820,15 @@ init_Sound
 ; procSetfrequency
 ;
 procSetfrequency
-    JSR .l9595
+    JSR .l9595                  ; get 2. parameter (frequency)
     LDA COPY1
     LDY COPY1+1
-    JSR LDAC1
-    JSR FPINTA
-    JSR .lB1EE
-    LDA AC1M4
+    JSR LDAC1                   ; load ac1
+    JSR FPINTA                  ; CONVERT AC1 INTO INTEGER (0 .. 65535)
+    JSR .lB1EE                  ; get 1. parameter (as offset) into x (0,7,14)
+    LDA AC1M4                   ; MANTISSA 4
     STA $D400,X
-    LDA AC1M3
+    LDA AC1M3                   ; MANTISSA 3
     STA $D401,X
     RTS
 
@@ -7835,8 +7837,8 @@ procSetfrequency
 ;
 procNote
     LDA #$02
-    JSR .lB316
-    JSR .lB1EE
+    JSR .lB316                  ; get 2. parameter (note)
+    JSR .lB1EE                  ; get 1. parameter (as offset) into x (0,7,14)
     LDA COPY3
     STA $D401,X
     LDA COPY3+1
@@ -7847,6 +7849,7 @@ procNote
     LDX #$24                    ; invalid note error
     JMP RUNERR
 ---------------------------------
+; calculate frequency value from note input
 .lB316
     JSR FNDPAR
     LDY #$02
@@ -7946,12 +7949,12 @@ procNote
 ; procPulse
 ;
 procPulse
-    JSR .l95AB
+    JSR .l95AB                  ; get 2. parameter pulse width value
     STA COPY3
     STX COPY3+1
     AND #$F0
-    BNE .lB3F7
-    JSR .lB1EE
+    BNE .lB3F7                  ; value out of range
+    JSR .lB1EE                  ; get 1. parameter (as offset) into x (0,7,14)
     LDA COPY3+1
     STA $D402,X
     LDA COPY3
@@ -7969,13 +7972,13 @@ procGate
     LDA #$02                    ; second parameter (on/off)
     JSR .lB217                  ; get parameter, returns 0 or 1
     STA COPY3
-    JSR .lB1EE
-    LDA $C300,Y
+    JSR .lB1EE                  ; get 1. parameter (voice no. into y, and as offset into x (0,7,14)
+    LDA $C300,Y                 ; set or delete the gate bit for voice y
     LSR
     ROR COPY3
     ROL
     STA $C300,Y
-    STA $D404,X
+    STA $D404,X                 ; voice register offset in x
     RTS
 
 ;
@@ -7983,20 +7986,20 @@ procGate
 ;
 procSoundtype
     LDA #$02
-    JSR .lB209
+    JSR .lB209                  ; get waveform no.
     CPX #$05
-    BCS .lB3F7
-    LDA .lB431,X
+    BCS .lB3F7                  ; value out of range
+    LDA .lB431,X                ; waveform offset
     STA COPY3
-    JSR .lB1EE
+    JSR .lB1EE                  ; get 1. parameter (voice no. into y, and as offset into x (0,7,14)
     LDA $C300,Y
     AND #$0F
     ORA COPY3
     STA $C300,Y
-    STA $D404,X
+    STA $D404,X                 ; save waveform for voice x
     RTS
 
-
+;waveform offset value
 .lB431
     !by $00,$10,$20,$40,$80
 
@@ -8005,9 +8008,9 @@ procSoundtype
 ;
 procRingmod
     LDA #$02
-    JSR .lB217                  ; get parameter, returns 0 or 1
+    JSR .lB217                  ; get 2. parameter, returns 0 or 1
     PHA
-    JSR .lB1EE
+    JSR .lB1EE                  ; get 1. parameter (voice no. into y, and as offset into x (0,7,14)
     PLA
     BEQ +
     LDA $C300,Y
@@ -8026,9 +8029,9 @@ procRingmod
 ;
 procSync
     LDA #$02
-    JSR .lB217                  ; get parameter, returns 0 or 1
+    JSR .lB217                  ; get 2. parameter, (yes/no) returns 0 or 1
     PHA
-    JSR .lB1EE
+    JSR .lB1EE                  ; get 1. parameter (voice no. into y, and as offset into x (0,7,14)
     PLA
     BEQ +
     LDA $C300,Y
@@ -8046,33 +8049,37 @@ procSync
 ; procAdsr
 ;
 procAdsr
-    LDA #$02
-    JSR .lB209
-    ASL
-    ASL
-    ASL
-    ASL
+    LDA #$02                    ; 2. parameter
+    JSR .lB209                  ; get value 'a' (max. 15)
+    ASL                         ;
+    ASL                         ;
+    ASL                         ;
+    ASL                         ; move into high nibble
     STA COPY3
-    LDA #$03
-    JSR .lB209
-    ORA COPY3
+
+    LDA #$03                    ; 3. parameter
+    JSR .lB209                  ; get value 'd' (max. 15)
+    ORA COPY3                   ; ora with 'a' value
     STA COPY3
-    LDA #$04
-    JSR .lB209
-    ASL
-    ASL
-    ASL
-    ASL
+
+    LDA #$04                    ; 4. parameter
+    JSR .lB209                  ; get value 's' (max. 15)
+    ASL                         ;
+    ASL                         ;
+    ASL                         ;
+    ASL                         ; move into high nibble
     STA COPY3+1
-    LDA #$05
-    JSR .lB209
-    ORA COPY3+1
+
+    LDA #$05                    ; 5. parameter
+    JSR .lB209                  ; get value 'r' (max. 15)
+    ORA COPY3+1                 ; ora with 's' value
     STA COPY3+1
-    JSR .lB1EE
+
+    JSR .lB1EE                  ; get 1. parameter (voice no. as offset into x (0,7,14)
     LDA COPY3
-    STA $D405,X
+    STA $D405,X                 ; set register with 'ad' 
     LDA COPY3+1
-    STA $D406,X
+    STA $D406,X                 ; set register with 'sr'
     RTS
 ---------------------------------
 
@@ -8082,7 +8089,7 @@ procAdsr
 ; procFilterfreq
 ;
 procFilterfreq
-    JSR .l95B0
+    JSR .l95B0                  ; get a parameter, a= high, x= low
     STA COPY3
     AND #$F8
     BNE -
@@ -8108,38 +8115,40 @@ procFilterfreq
 ;
 procResonance
     LDA #$01
-    JSR .lB209
+    JSR .lB209                  ; get a value (max. 15)
     ASL
     ASL
     ASL
-    ASL
+    ASL                         ; move into high nibble
     STA COPY3
     LDA $C303
-    AND #$0F
-    ORA COPY3
+    AND #$0F                    ; and with low nibble
+    ORA COPY3                   ; ora with high nibble
     STA $C303
-    STA $D417
+    STA $D417                   ; write to register
     RTS
 
 ;
 ; procFilter
 ;
 procFilter
-    LDA $C303
+    LDA $C303                   ; load filter value
     LSR
     LSR
     LSR
-    LSR
+    LSR                         ; move high nibble into low nibble
     STA $C303
-    LDA #$04
+    LDA #$04                    ; loop and parameter counter
     STA COPY3
 
+; write voice filter to register bit 0-3
 -   JSR .lB217                  ; get parameter, returns 0 or 1
     ROR
     ROL $C303
     DEC COPY3
-    LDA COPY3
-    BNE -
+    LDA COPY3                   ; next parameter
+    BNE -                       ; loop 4 times
+
     LDA $C303
     STA $D417
     RTS
@@ -8148,22 +8157,24 @@ procFilter
 ; procFiltertype
 ;
 procFiltertype
-    LDA $C304
+    LDA $C304                   ; load filter mod value
     ASL
     ASL
     ASL
-    ASL
+    ASL                         ; move into high nibble
     STA $C304
-    LDA #$01
+    LDA #$01                    ; mode and parameter counter
     STA COPY3
 
+; write filter mode to register bit 4-7
 -   JSR .lB217                  ; get parameter, returns 0 or 1
     ROR
     ROR $C304
     INC COPY3
     LDA COPY3
     CMP #$05
-    BCC -
+    BCC -                       ; loop 4 times
+
     LDA $C304
     STA $D418
     RTS
@@ -8172,12 +8183,12 @@ procFiltertype
 ; procVolume
 ;
 procVolume
-    LDA $C304
-    AND #$F0
+    LDA $C304                   ; load value
+    AND #$F0                    ; delete volume bit 0-3
     STA $C304
     LDA #$01
-    JSR .lB209
-    ORA $C304
+    JSR .lB209                  ; get volume (max.15)
+    ORA $C304                   ; ora with bit 4-7
     STA $C304
     STA $D418
     RTS
@@ -8187,8 +8198,8 @@ procVolume
 ;
 funcEnv3
     LDX $D41C
-    JMP .lA993
-
+    JMP .lA993                  ; LDA #$00
+                                ; JMP PSHINT
 ;
 ; funcOsc3
 ;
@@ -8201,46 +8212,64 @@ funcOsc3
 ;
 funcFrequency
     LDA #$01
-    JSR .lB316
-    LDA COPY3
-    LDX COPY3+1
-    JMP PSHINT
+    JSR .lB316                  ; get frequency, vcalculated by note input
+    LDA COPY3                   ; high byte
+    LDX COPY3+1                 ; low byte
+    JMP PSHINT                  ; FLOAT & PUSH INTEGER (-32768 .. 32767)
 
 ;
 ; procSetscore
 ;
 procSetscore
 ; voice
-    JSR .lB1EE
-    STY INF1
+    JSR .lB1EE                  ; get 1. parameter (voice no. into y)
+    STY INF1                    ; y = 0, 1 or 2
     LDA #$00
-    STA $C308,Y
+    STA $C308,Y                 ; stop voice
     STA $C31D
     STA $C31E
-    LDA #$02
+
+; frequency table pointer   -- low byte -- , -- high byte --
+; voice 1                       $C30B            $C30E
+; voice 2                       $C30C            $C30F
+; voice 3                       $C30D            $C310
+
 ; frequency
-    JSR .lB228
-    LDX INF1
+    LDA #$02
+    JSR .lB228                  ; get parameter 2 (frequency table)
+    LDX INF1                    ; voice number 0, 1 or 2
     LDA COPY3
-    STA $C30B,X
+    STA $C30B,X                 ; table address low
     LDA COPY3+1
-    STA $C30E,X
-    LDA #$03
+    STA $C30E,X                 ; table address high
+
+; ads table pointer         -- low byte -- , -- high byte --
+; voice 1                       $C311            $C314
+; voice 2                       $C312            $C315
+; voice 3                       $C313            $C316
+
 ; ads-value
-    JSR .lB228
-    LDX INF1
+    LDA #$03
+    JSR .lB228                  ; get parameter 3 (ads table)
+    LDX INF1                    ; voice number 0, 1 or 2
     LDA COPY3
-    STA $C311,X
+    STA $C311,X                 ; table address low
     LDA COPY3+1
-    STA $C314,X
-    LDA #$04
+    STA $C314,X                 ; table address high
+
+; r table pointer           -- low byte -- , -- high byte --
+; voice 1                       $C317            $C31A
+; voice 2                       $C318            $C31B
+; voice 3                       $C319            $C31C
+
 ; r-value
-    JSR .lB228
-    LDX INF1
+    LDA #$04
+    JSR .lB228                  ; get parameter 4 (r table)
+    LDX INF1                    ; voice number 0, 1 or 2
     LDA COPY3
-    STA $C317,X
+    STA $C317,X                 ; table address low
     LDA COPY3+1
-    STA $C31A,X
+    STA $C31A,X                 ; table address high
     RTS
 
 ;
@@ -8255,16 +8284,19 @@ procPlayscore
     JSR .lB217                  ; get parameter, returns 0 or 1
     BEQ +                       ; branch if 0, nothing to do
     LDX INF1                    ; else load counter as x-pointer
-    LDA $C307,X                 
+    LDA $C308-1,X                 
     BNE +                       ; not 0, exit
-    LDA $C30A,X
-    ORA $C30D,X
-    BEQ +
+    LDA $C30A,X                 ; freq-table low byte
+    ORA $C30D,X                 ; freq-table high byte
+    BEQ +                       ; check next voice
+
+; ---- delete timer -------------
     LDA #$00
-    STA $C321,X
-    STA $C31E,X
+    STA $C322-1,X
+    STA $C31F-1,X
+
     LDA #$02
-    STA $C307,X
+    STA $C308-1,X               ; activate voice (start IRQ)
 
 +   DEC INF1                    ; dec voice counter
     BNE -                       ; branch if more voice(es)
@@ -8285,18 +8317,18 @@ procStopplay
     BEQ +
     LDX INF1
     LDA #$00
-    STA $C307,X
+    STA $C308-1,X               ; clear interrupt flag voice x
     LDA $C2FF,X
-    AND #$FE
+    AND #$FE                    ; clear gate flag
     STA $C2FF,X
     LDY INF2
-    STA $D404,Y
+    STA $D404,Y                 ; stop play voce x in reg y
 
 +   LDA INF2
     CLC
-    ADC #$07
+    ADC #$07                    ; next register
     STA INF2
-    DEC INF1
+    DEC INF1                    ; next voice
     BNE -
     RTS
 
@@ -8304,21 +8336,21 @@ procStopplay
 ; procWaitscore
 ;
 procWaitscore
-    LDA #$03
+    LDA #$03                    ; voice and parameter counter
     STA INF2
 
 -   LDA INF2
     JSR .lB217                  ; get parameter, returns 0 or 1
-    BEQ +
+    BEQ +                       ; no wait on this voice
     LDX INF2
-    LDA $C307,X
+    LDA $C308-1,X               ; check interrupt flag
     BEQ +
-    JMP .lA99D
+    JMP .lA99D                  ; not analyzed, probably wait???
 ---------------------------------
 
 +   DEC INF2
     BNE -
-    JMP .lA99A
+    JMP .lA99A                  ; not analyzed, probably wait???
 
 
 ; $B616
@@ -8905,12 +8937,13 @@ procDelay
     INC TIME+1
     BNE .lB9B6
     INC TIME
+; sound part handling
 .lB9B6
-    LDA $C308
+    LDA $C308                   ; check for sound to play
     ORA $C309
     ORA $C30A
-    BEQ .lB9C4
-    JMP .lBC44
+    BEQ .lB9C4                  ; no, exit
+    JMP .lBC44                  ; yes, jump to sound irq
 ---------------------------------
 .lB9C4
     RTS
@@ -9114,33 +9147,42 @@ procDelay
     !by >.lBAE1-1,>.lBAEF-1,>.lBAFE-1,>.lBB14-1,>.lBB2A-1,>.lBB34-1,>.lBAB2-1
     !by <.lBAE1-1,<.lBAEF-1,<.lBAFE-1,<.lBB14-1,<.lBB2A-1,<.lBB34-1,<.lBAB2-1
 
+
+; sound IRQ
 .lBB5B
-    LDA #$02
+    LDA #$02                    ; oscillator counter 3..1 (as 2..0)
     STA INF1
     LDA #$0E
-    STA INF2
-.lBB63
-    LDX INF1
-    LDA $C308,X
-    BNE .lBB6D
-    JMP .lBC28
+    STA INF2                    ; holds the frequency reg. (first oscillator 3: offset 14)
+
+.lBB63  ;           (MAINLOOP)
+    LDX INF1                    ; first: oscillator 3 (in .x)
+    LDA $C308,X                 ; is there a voice for this oscillator? (get flag: 2, 1 or 0)
+    BNE .lBB6D                  ; yes, not under work, or not finished? (2 or 1?)
+    JMP .lBC28                  ; no, voice finished or not set (0), handle next oscillator
+
 ---------------------------------
-.lBB6D
-    LDA $C31F,X
+.lBB6D  ;           Inner Loop (voice timer)
+    LDA $C31F,X                 ; timwer finished? (is 0?)
     ORA $C322,X
-    BEQ .lBB78
-    JMP .lBC1A
+    BEQ .lBB78                  ; yes
+
+    JMP .lBC1A                  ; no, count down (16Bit-counter)
 ---------------------------------
+; INF1 = 0, INF2 = 0
 .lBB78
-    LDA $C308,X
+    LDA $C308,X                 ; get flag for oscillator (2..0), minus 1
     TAY
     DEY
     BNE .lBBB6
-    LDY INF2
-    LDA $C300,X
+
+    LDY INF2                    ; yes, get oscillator nr. (0..2)
+    LDA $C300,X                 ; clear gatebit (voice off), store in $C300..$C302
     AND #$FE
     STA $C300,X
-    STA $D404,Y
+    STA $D404,Y                 ; switch off now
+
+; load R-table pointer, and increase table pointer
     CLC
     LDA $C317,X
     STA COPY1
@@ -9150,40 +9192,47 @@ procDelay
     STA COPY1+1
     ADC #$00
     STA $C31A,X
+
+; load timer with R-table value
     LDY #$00
     LDA (COPY1),Y
     STA $C322,X
     INY
     LDA (COPY1),Y
     STA $C31F,X
-    LDA #$02
-    STA $C308,X
-    JMP .lBB6D
+
+    LDA #$02                    ; voice available
+    STA $C308,X                 ; set flag
+    JMP .lBB6D                  ; timer count down
 ---------------------------------
+; load frequncy table pointer, and increase table pointer
 .lBBB6
     LDA $C30E,X
     STA COPY1+1
     LDA $C30B,X
     STA COPY1
     CLC
-    ADC #$02
+    ADC #$02                    ; increase pointer
     STA $C30B,X
     BCC .lBBCB
     INC $C30E,X
+
 .lBBCB
     LDY #$01
     LDA (COPY1),Y
     DEY
     ORA (COPY1),Y
-    BEQ .lBC37
+    BEQ .lBC37                  ; no frequency available
     LDA (COPY1),Y
     PHA
     INY
     LDA (COPY1),Y
     LDY INF2
-    STA $D400,Y
+    STA $D400,Y                 ; set frequency
     PLA
-    STA $D401,Y
+    STA $D401,Y                 ; set frewuency
+
+; load ADS-table pointer, and increase table pointer
     CLC
     LDA $C311,X
     STA COPY1
@@ -9193,21 +9242,25 @@ procDelay
     STA COPY1+1
     ADC #$00
     STA $C314,X
+
+; load timer with ADS-table value
     LDY #$00
     LDA (COPY1),Y
     STA $C322,X
     INY
     LDA (COPY1),Y
     STA $C31F,X
-    LDA $C300,X
+
+    LDA $C300,X                 ; switch voice on
     ORA #$01
     STA $C300,X
     LDY INF2
     STA $D404,Y
-    LDA #$01
+    LDA #$01                    ; set flag as play voice
     STA $C308,X
-    JMP .lBB6D
+    JMP .lBB6D                  ; timer count down
 ---------------------------------
+; decrease timer
 .lBC1A
     SEC
     LDA $C31F,X
@@ -9215,24 +9268,27 @@ procDelay
     STA $C31F,X
     BCS .lBC28
     DEC $C322,X
+
 .lBC28
-    SEC
-    LDA INF2
+    SEC                         ; next oscillator
+    LDA INF2                    ; from 14 to 7 to 0 to -7
     SBC #$07
-    BMI .lBC36
-    STA INF2
-    DEC INF1
-    JMP .lBB63
+    BMI .lBC36                  ; negative?: end
+    STA INF2                    ; else: new oscillator
+    DEC INF1                    ; decrease oscillator
+    JMP .lBB63                  ; to inner loop
 ---------------------------------
 .lBC36
-    RTS
+    RTS                         ; finish
 ---------------------------------
 .lBC37
-    LDA #$00
+    LDA #$00                    ; flag for stop play
     STA $C308,X
     STA $C30B,X
     STA $C30E,X
-    BEQ .lBC28
+    BEQ .lBC28                  ; check next oscillator
+
+; sound irq called from main irq
 .lBC44
     LDA INF1
     PHA
@@ -9242,7 +9298,7 @@ procDelay
     PHA
     LDA COPY1+1
     PHA
-    JSR .lBB5B
+    JSR .lBB5B                  ; sound
     PLA
     STA COPY1+1
     PLA

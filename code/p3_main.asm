@@ -2396,9 +2396,10 @@ P3_90F0
     LDA #$0A
     JSR P3_8287
     LDX #$00
-    STX $C6
+
+    STX $C6                     ; clears the keyboard buffer
 +   LDA $C845                   ; status of comal program
-    CMP #$04
+    CMP #$04                    ; program mode?
     BNE +
 .l91E7  LDA $88
     ORA #$01
