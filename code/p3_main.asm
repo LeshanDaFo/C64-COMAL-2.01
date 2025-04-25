@@ -2398,6 +2398,11 @@ P3_90F0
     LDX #$00
 
     STX $C6                     ; clears the keyboard buffer
+; possible patch, but not tested for other incompatibility
+; replace STX $C6 by 2 NOP's
+;    NOP
+;    NOP
+
 +   LDA $C845                   ; status of comal program
     CMP #$04                    ; program mode?
     BNE +

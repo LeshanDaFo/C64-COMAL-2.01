@@ -4044,14 +4044,14 @@ P2_A2A4
 +   RTS
 ---------------------------------
 .lA302
-    STA $09
-    LDY #$80
+    STA $09                     ; pagex
+    LDY #$80                    ; $8000
     JSR .lA2E7
-    LDY #$90
+    LDY #$90                    ; $9000
     JSR .lA2E7
-    LDY #$A0
+    LDY #$A0                    ; $A000
     JSR .lA2E7
-    LDY #$B0
+    LDY #$B0                    ; $B000
     JMP .lA2E7
 ---------------------------------
 .lA318  JSR $CAEE
@@ -4117,17 +4117,35 @@ P2_A384
     JSR P2_A1BB
     LDA #$9A
     LDX #$A5
-    STA $C7F0
-    STX $C7FA
+    STA $C7F0                   ; liblo
+    STX $C7FA                   ; libhi
     LDA #$80
-    STA $C804
+    STA $C804                   ; libpag
     INC $C7EF
-    LDA #$83
+; check for additional extensions on Pages
+
+    LDA #$83                    ; check PAGE4 (belongs to COMAL main part)
     JSR .lA302
-    LDA #$84
+    LDA #$84                    ; check PAGE5 (1st 16kb)
     JSR .lA302
-    LDA #$85
+    LDA #$85                    ; check PAGE6 (2nd 16kb)
     JSR .lA302
+
+; patch page limit
+; a possible patch could be as following:
+; replace the upper part with the following
+
+;    LDA #$83                    ; first page to check
+;-   PHA                         ; save page
+;    JSR .lA302                  ; check page for extension
+;    PLA                         ; get page back
+;    CLC
+;    ADC #$01                    ; increase page counter
+;    CMP #$87                    ; cmp with max. page (there is a hardware limit)
+;    BCC -                       ; next page
+;    NOP                         ; fillbyte
+; patch end
+
     LDA #$00
     JSR .lA318
     CLI
